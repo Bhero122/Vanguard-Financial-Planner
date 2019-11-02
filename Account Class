@@ -1,0 +1,248 @@
+from abc import *
+import random
+import datetime
+
+'''
+Account Class: Abstract class
+
+attributes:
+holder - person holding the account
+balance - amount of money in the account
+birthdate - age of the account
+'''
+class Account(ABC):
+    USED_IDs  = [0] #contains the list of already taken ID numbers
+    INTEREST = 0
+    def __init__(self, account_holder, birthdate, amount):
+        """
+        Creates a new account (abstract so only used for super().__init
+
+        Parameters:
+        -----------
+        account_holder: string
+        birthdate: string
+
+        Returns:
+        --------
+        int: Age of the account 
+        """
+        self.holder = account_holder
+        self.balance = amount
+        self.birthdate=birthdate
+
+        self.__id=self.__createID
+
+    #Property Methods
+    #-----------------------
+    @property
+    def __createID(self):
+        num = 0
+        while(num in self.USED_IDs):
+            num = random.randint(100,9000)
+        self.USED_IDs.append(num)
+        return num
+
+    @property
+    def age(self):
+        """
+        Returns the age of the account
+
+        Parameters:
+        -----------
+        None
+
+        Returns:
+        --------
+        int: Age of the account 
+        """
+        month, day, year = self.birthdate.split("/")
+        today = datetime.date.today()
+
+        age = today.year - int(year)
+
+        if today < datetime.date(today.year, int(month), int(day)):
+            age -= 1
+
+        return age
+
+    #Getters
+    #-----------------------
+    @property
+    def getID(self):
+        return self.__id
+
+    def getBalance(self):
+        return ("Current Balance: ${}".format(self.balance))
+
+    #setters
+    #-----------------------
+    def setID(self, new_id):
+        self.__id=new_id
+
+   
+    #abstract
+    #-----------------------
+    @abstractmethod
+    def greeting(self):
+        raise NotImplementedError('Subclass implements this method')
+
+    def deposit(self, amount):
+        if isinstance(amount, (int,float)):
+            self.balance = self.balance + amount
+            return self.balance
+        elif isinstance(amount, Check):
+            if amount.pay_to==self.holder and (not amount.cashed) and amount.check_amount>0:
+                self.balance+=amount.check_amount
+                amount.cashed=True
+                return self.balance
+            else:
+                return 'you are trying to steal money'
+
+        else:
+            return 'invalid operation'
+
+    #money functions
+    #-----------------------
+    def withdraw(self, amount):
+        if isinstance(amount, (int,float)):
+            if amount > self.balance:
+                return 'Not enough funds'
+            self.balance = self.balance - amount
+            return self.balance
+        else:
+            return 'invalid operation'
+
+    #special functions
+    #-----------------------
+    def __str__(self):
+        typeOfAccount= "Account:"
+        if isinstance(self, CheckingAccount):
+            typeOfAccount= "Checking Account"
+        else:
+            typeOfAccount = "Savings Account"
+        return ("Account No. " + str(self.getID) + " | Type of Account: " + typeOfAccount+ " | Account Holder: " + str(self.holder) +" | " + self.getBalance())
+
+    def __repr__(self):
+        return str(self)
+'''
+Checking Account is a subclass of Account
+'''
+class CheckingAccount(Account):
+    #CONSTANTS
+    #----------------
+    WITHDRAW_FEE = 1
+    DEPOSIT_FEE = 2
+    TRANSFER_FEE = 3
+    INTEREST = 0.01
+ 
+    def __init__(self,name, birthdate, amount):
+        super().__init__(name, birthdate, amount)
+        print(self.greeting())
+        print(self.getBalance())
+
+    #money functions
+    #----------------
+    def withdraw(self, amount): #withdraws money from the checking account
+        return Account.withdraw(self, amount + CheckingAccount.WITHDRAW_FEE)
+    def deposit(self, amount): #deposits money into the checking account
+        return Account.deposit(self, amount-SavingsAccount.DEPOSIT_FEE)
+    
+    def transfer(self, other, amount):
+        '''
+        Transfers money from this account to another account
+
+        Parameters:
+        other - Account
+        amount - int/float
+
+        Returns:
+        Nothing
+        '''
+        if isinstance(other, Account):
+            response = self.withdraw(amount)
+            if isinstance(response, (int,float)):
+                other.deposit(amount-self.TRANSFER_FEE)
+            else:
+                print(response)
+
+    #inheritance/polymorphism
+    #----------------
+    def greeting(self):
+        return f'Welcome to your Checking Account, {self.holder}!'
+
+    #repr function
+    #----------------
+    def __repr__(self):
+        return "Checking Account | " + str(self) 
+    
+
+class SavingsAccount(Account):
+    #CONSTANTS
+    #----------------
+    INTEREST = 0.03
+    __DEPOSIT_FEE = 1
+    __WITHDRAW_FEE = 2
+    MIN_BALANCE =250
+
+    def __new__(self, name, birthdate, balance):
+        '''
+        Checks that the balance is greater than or equal to 500
+        If not met does not create a savings account
+        Parameters:
+        -----------
+        name - string
+        birthdate - Date
+        balance - float/int
+
+        Returns:
+        --------
+        SavingsAccount Object if successful
+        Nothing if failed condition
+        '''
+        if int(balance)<500:
+            raise TypeError('Balance not met')
+        instance = super(SavingsAccount, self).__new__(self)
+        return instance
+
+    def __init__(self, name, birthdate, balance):
+        super().__init__(name, birthdate, balance)
+        self.balance += 100
+        print(self.greeting())
+
+    #money methods
+    #----------------
+
+    def deposit(self, amount):
+        return Account.deposit(self, amount-SavingsAccount.__DEPOSIT_FEE)
+    def transfer(self, other, amount):
+        '''
+        Transfers money from this account to another account
+
+        Parameters:
+        other - Account
+        amount - int/float
+
+        Returns:
+        Nothing
+        '''
+        if isinstance(other, Account):
+            response = self.withdraw(amount)
+            if isinstance(response, (int,float)):
+                other.deposit(amount)
+            else:
+                print(response)
+    def withdraw(self, amount):
+        if self.balance-amount+ SavingsAccount.__WITHDRAW_FEE>=SavingsAccount.MIN_BALANCE:
+            return Account.withdraw(self, amount + SavingsAccount.__WITHDRAW_FEE)
+        return 'min balance error'
+    
+    #inheritance/polymorphism
+    #----------------
+    def greeting(self):
+        return f'Welcome to your Savings Account, {self.holder}!'
+
+    #repr function
+    #----------------
+    def __repr__(self):
+        return "Checking Account | " + str(self) 
+    
